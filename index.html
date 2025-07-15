@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>维生素D日照计算器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .calculator {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f5e9;
+            border-radius: 5px;
+            display: none;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .time-slots, .body-parts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .time-slot, .body-part {
+            background-color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .time-slot.selected, .body-part.selected {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .city-selector {
+            display: flex;
+            gap: 10px;
+        }
+        .city-selector select {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>维生素D日照计算器</h1>
+    <div class="calculator">
+        <label for="skinType">皮肤类型:</label>
+        <select id="skinType">
+            <option value="1">I型 - 极易晒伤(白皙皮肤，金色/红色头发)</option>
+            <option value="2">II型 - 容易晒伤(白皙皮肤)</option>
+            <option value="3">III型 - 偶尔晒伤(中等肤色)</option>
+            <option value="4" selected>IV型 - 很少晒伤(橄榄色皮肤)</option>
+            <option value="5">V型 - 不易晒伤(棕色皮肤)</option>
+            <option value="6">VI型 - 极不易晒伤(深色皮肤)</option>
+        </select>
+        
+        <label>选择暴露部位:</label>
+        <div class="body-parts" id="bodyParts">
+            <div class="body-part selected" data-exposure="25">手臂</div>
+            <div class="body-part" data-exposure="35">手臂+腿部</div>
+            <div class="body-part" data-exposure="50">手臂+腿部+上身</div>
+            <div class="body-part" data-exposure="75">手臂+腿部+上身+背部</div>
+        </div>
+        
+        <label>选择城市:</label>
+        <div class="city-selector">
+            <select id="region">
+                <option value="north">北方城市</option>
+                <option value="central" selected>中部城市</option>
+                <option value="south">南方城市</option>
+            </select>
+            <select id="city"></select>
+        </div>
+        
+        <label>选择时间段:</label>
+        <div class="time-slots" id="timeSlots">
+            <div class="time-slot" data-time="morning">早晨 (8-10点)</div>
+            <div class="time-slot selected" data-time="midmorning">上午 (10-12点)</div>
+            <div class="time-slot" data-time="noon">中午 (12-14点)</div>
+            <div class="time-slot" data-time="afternoon">下午 (14-16点)</div>
+            <div class="time-slot" data-time="lateafternoon">傍晚 (16-18点)</div>
+        </div>
+        
+        <button onclick="calculate()">计算所需日照时间</button>
+        
+        <div class="result" id="result">
+            <h3>计算结果</h3>
+            <p id="resultText"></p>
+            <p id="recommendation"></p>
+        </div>
+    </div>
+
+    <script>
+        // 城市数据
+        const citiesData = {
+            north: [
+                {name: "哈尔滨", latitude: 45.8},
+                {name: "长春", latitude: 43.9},
+                {name: "沈阳", latitude: 41.8},
+                {name: "北京", latitude: 39.9},
+                {name: "天津", latitude: 39.1},
+                {name: "呼和浩特", latitude: 40.8}
+            ],
+            central: [
+                {name: "上海", latitude: 31.2},
+                {name: "南京", latitude: 32.1},
+                {name: "杭州", latitude: 30.3},
+                {name: "武汉", latitude: 30.5},
+                {name: "成都", latitude: 30.7},
+                {name: "重庆", latitude: 29.6}
+            ],
+            south: [
+                {name: "广州", latitude: 23.1},
+                {name: "深圳", latitude: 22.5},
+                {name: "厦门", latitude: 24.5},
+                {name: "福州", latitude: 26.1},
+                {name: "南宁", latitude: 22.8},
+                {name: "海口", latitude: 20.0}
+            ]
+        };
+
+        // 初始化城市选择
+        const regionSelect = document.getElementById('region');
+        const citySelect = document.getElementById('city');
+        
+        function updateCities() {
+            const region = regionSelect.value;
+            citySelect.innerHTML = '';
+            citiesData[region].forEach(city => {
+                const option = document.createElement('option');
+                option.value = city.latitude;
+                option.textContent = city.name;
+                citySelect.appendChild(option);
+            });
+        }
+        
+        regionSelect.addEventListener('change', updateCities);
+        updateCities();
+
+        // 处理时间段选择
+        const timeSlots = document.querySelectorAll('.time-slot');
+        timeSlots.forEach(slot => {
+            slot.addEventListener('click', function() {
+                timeSlots.forEach(s => s.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // 处理暴露部位选择
+        const bodyParts = document.querySelectorAll('.body-part');
+        bodyParts.forEach(part => {
+            part.addEventListener('click', function() {
+                bodyParts.forEach(p => p.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        function calculate() {
+            // 获取输入值
+            const skinType = parseInt(document.getElementById('skinType').value);
+            const bodyExposure = parseInt(document.querySelector('.body-part.selected').dataset.exposure);
+            const latitude = parseFloat(citySelect.value);
+            const selectedTimeSlot = document.querySelector('.time-slot.selected').dataset.time;
+            const selectedCity = citySelect.options[citySelect.selectedIndex].text;
+            
+            // 皮肤类型系数 (1-6对应不同类型)
+            const skinTypeFactors = [0.33, 0.5, 0.67, 1.0, 1.5, 2.0];
+            const skinFactor = skinTypeFactors[skinType - 1];
+            
+            // 纬度系数 (0-90°)
+            const latitudeFactor = 1 + (Math.abs(latitude - 30) / 60);
+            
+            // 时间段系数
+            const timeFactors = {
+                'morning': 1.5,
+                'midmorning': 1.2,
+                'noon': 1.0,
+                'afternoon': 1.2,
+                'lateafternoon': 1.5
+            };
+            const timeFactor = timeFactors[selectedTimeSlot];
+            
+            // 基础维生素D合成时间 (分钟)
+            let baseTime = 30;
+            
+            // 计算调整后的时间
+            let adjustedTime = (baseTime * skinFactor * latitudeFactor * timeFactor) / (bodyExposure / 25);
+            
+            // 显示结果
+            const resultDiv = document.getElementById('result');
+            const resultText = document.getElementById('resultText');
+            const recommendation = document.getElementById('recommendation');
+            
+            resultText.innerHTML = `根据您的参数(城市: ${selectedCity})，建议每天在${getTimeSlotName(selectedTimeSlot)}晒太阳约 <strong>${Math.round(adjustedTime)}分钟</strong> 以满足维生素D需求。`;
+            
+            // 季节建议
+            let seasonAdvice = "";
+            if (latitude > 35) {
+                seasonAdvice = "冬季(11月-2月)可能需要增加50%以上的日照时间，或考虑补充维生素D";
+            } else if (latitude > 25) {
+                seasonAdvice = "冬季(12月-1月)可能需要增加30%的日照时间";
+            } else {
+                seasonAdvice = "全年日照充足，冬季也无需特别增加时间";
+            }
+            
+            // 构建注意事项
+            let recommendationHTML = `
+                <strong>注意事项：</strong><br>
+                1. 最佳时间: 上午10点至下午3点<br>
+                2. 无需涂抹防晒霜(会阻挡维生素D合成)<br>
+                3. ${seasonAdvice}<br>
+                4. 冬季或高纬度地区可能需要更长时间
+            `;
+            
+            // 只有当需要分多次进行时才添加第5条
+            if (adjustedTime > 30) {
+                recommendationHTML += `<br>5. 建议分多次进行，避免长时间暴晒`;
+            }
+            
+            recommendation.innerHTML = recommendationHTML;
+            
+            resultDiv.style.display = 'block';
+        }
+        
+        function getTimeSlotName(timeSlot) {
+            const names = {
+                'morning': '早晨 (8-10点)',
+                'midmorning': '上午 (10-12点)',
+                'noon': '中午 (12-14点)',
+                'afternoon': '下午 (14-16点)',
+                'lateafternoon': '傍晚 (16-18点)'
+            };
+            return names[timeSlot];
+        }
+    </script>
+</body>
+</html>
